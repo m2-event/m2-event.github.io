@@ -1,0 +1,24 @@
+name: Aktarım - Metin2 Masası
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/metin2-import.yml]
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Metin2 dosyalarını aktar
+        env:
+          SOURCE_SHA: d640a0d7cadcaea752cdd36abc789ed8d23ba65b
+          TARGET_BRANCH: 2026.11.17-metin2_masasi-HEC
+        run: |
+          git fetch --depth 1 https://github.com/Hakanecavus/hakanecavus.github.io.git "$SOURCE_SHA"
+          git archive "$SOURCE_SHA:metin2" | tar -x
+          touch .nojekyll
+          git switch -c "$TARGET_BRANCH"
+          git add .nojekyll README.md app.js assets index.html king-ui.js king.js okey.js styles.css
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Metin2 Masası uygulamasını ekle"
+          git push origin "HEAD:refs/heads/$TARGET_BRANCH"
