@@ -30,3 +30,9 @@ ZIP arşivini çıkar ve `HEC-Okey-Masasi/index.html` dosyasını tarayıcıda a
 - Instrument Sans ve Playfair Display yazı tiplerinin lisansları `assets` klasöründedir.
 
 Metin2 görselleri WEBZEN / Gameforge'a aittir. HEC Metin2 Masası kişisel bir hayran uygulamasıdır.
+
+## Kâhin Yarışması ve sesler
+
+Kâhin Yarışması antrenmanında rakip dokuz farklı kartı karışık sırada oynar. Rakibin sayısı oyun sonuna kadar gizli kalır. Not Defteri, renk ve karşılaştırma ipuçlarından birbiriyle tutarlı olası kartları çıkarır. Kâhin Kuralları ekranı puanlama ve ödülleri açıklar. Oyun sesleri üst çubuktan açılıp kapatılır.
+
+- [Kâhin Yarışması · Metin2 Wiki](https://tr-wiki.metin2.gameforge.com/index.php/Kahin_Yar%C4%B1%C5%9Fmas%C4%B1) · kurallar ve etkinlik görseli

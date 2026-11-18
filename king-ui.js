@@ -85,6 +85,7 @@
     }
 
     function changeNotes(next, message) {
+      GameSound.play('card');
       previousNotes = notes;
       notes = next;
       noteMessage = message;
@@ -230,7 +231,10 @@
   const gameBoard = get('king-board');
   gameBoard.addEventListener('click', (event) => {
     const button = event.target.closest('[data-king-cell]');
-    if (!button || !play(game, Number(button.dataset.kingCell))) return;
+    if (!button) return;
+    const move = play(game, Number(button.dataset.kingCell));
+    if (!move) return;
+    GameSound.play(move.trapped ? 'trap' : move.bingo || move.points === 100 ? 'win' : move.points ? 'point' : 'miss');
     const keyboard = event.detail === 0;
     renderGame();
     if (keyboard) (gameBoard.querySelector('button:not(:disabled)') || get('king-new-game')).focus({ preventScroll: true });
@@ -239,6 +243,7 @@
     game = createGame();
     practiceNotes.reset();
     renderGame();
+    GameSound.play('deal');
   });
   get('king-note-last').addEventListener('click', () => {
     const { index, revealed, nearFive, own } = game.last;

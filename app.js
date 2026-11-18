@@ -3,7 +3,21 @@
 const { colors, cards, byId, rewards, shuffle, evaluate, combinations, rewardFor } = Okey;
 const get = (id) => document.getElementById(id);
 const storageKey = 'hec-okey-tracker-v1';
-const sections = { takip: 'Kart Takibi', antrenman: 'Antrenman', rehber: 'Puan Rehberi', 'kral-takip': 'Kralı Yakala / Not Defteri', 'kral-antrenman': 'Kralı Yakala / Antrenman' };
+const sections = {
+  takip: 'Kart Takibi',
+  antrenman: 'Antrenman',
+  rehber: 'Puan Rehberi',
+  'kral-takip': 'Kralı Yakala / Not Defteri',
+  'kral-antrenman': 'Kralı Yakala / Antrenman',
+  'kahin-takip': 'Kâhin Yarışması / Not Defteri',
+  'kahin-antrenman': 'Kâhin Yarışması / Antrenman',
+  'kahin-kurallar': 'Kâhin Yarışması / Kurallar',
+};
+const heroes = {
+  okey: { prefix: '', title: 'Okey Masası', event: 'OKEY ETKİNLİĞİ', description: 'Kartlarını takip et, hamlelerini antrenmanda dene.' },
+  king: { prefix: 'kral-', title: 'Kralı Yakala', event: 'KRALI YAKALA ETKİNLİĞİ', description: 'Açılan kartları not et veya kendi tahtanda kralı ara.' },
+  seer: { prefix: 'kahin-', title: 'Kâhin Yarışması', event: 'KÂHİN YARIŞMASI', description: 'Rakibin rengini ve sonucunu takip et, sonraki kartını tahmin et.' },
+};
 
 function loadTracker() {
   try {
@@ -107,16 +121,17 @@ function renderRoute() {
   });
   get('breadcrumb').textContent = sections[page];
   const link = get('hero-link');
-  const kingPage = page.startsWith('kral-');
+  const key = page.startsWith('kral-') ? 'king' : page.startsWith('kahin-') ? 'seer' : 'okey';
+  const hero = heroes[key];
   const practice = page.endsWith('antrenman');
-  const target = practice ? 'takip' : 'antrenman';
-  link.href = '#'+ (kingPage ? 'kral-' : '') + target;
-  link.firstChild.nodeValue = practice ? (kingPage ? 'Not defterine geç ' : 'Kart takibine geç ') : 'Antrenmana geç ';
-  get('hero').classList.toggle('king-hero', kingPage);
-  get('hero-title').textContent = kingPage ? 'Kralı Yakala' : 'Okey Masası';
-  get('hero-event').textContent = kingPage ? 'METİN2 KRALI YAKALA ETKİNLİĞİ' : 'METİN2 OKEY ETKİNLİĞİ';
-  get('hero-description').textContent = kingPage ? 'Açılan kartları not et veya kendi tahtanda kralı ara.' : 'Kartlarını takip et, hamlelerini antrenmanda dene.';
-  get('hero-credit').textContent = kingPage ? 'METİN2 · ETKİNLİK GÖRSELİ' : 'METİN2 · OYUN İÇİ GÖRÜNTÜ';
+  link.href = `#${hero.prefix}${practice ? 'takip' : 'antrenman'}`;
+  link.firstChild.nodeValue = practice ? (hero.prefix ? 'Not defterine geç ' : 'Kart takibine geç ') : 'Antrenmana geç ';
+  get('hero').classList.toggle('king-hero', key === 'king');
+  get('hero').classList.toggle('seer-hero', key === 'seer');
+  get('hero-title').textContent = hero.title;
+  get('hero-event').textContent = `METİN2 ${hero.event}`;
+  get('hero-description').textContent = hero.description;
+  get('hero-credit').textContent = key === 'okey' ? 'METİN2 · OYUN İÇİ GÖRÜNTÜ' : 'METİN2 · ETKİNLİK GÖRSELİ';
 }
 
 function renderCard(id, onTable = false) {
@@ -175,6 +190,7 @@ get('tracker-grid').addEventListener('click', (event) => {
   const button = event.target.closest('[data-card]');
   if (!button) return;
   const id = button.dataset.card;
+  GameSound.play(tracked.has(id) ? 'card' : 'discard');
   editTracker(() => tracked.has(id) ? tracked.delete(id) : tracked.add(id));
 });
 get('tracker-reset').addEventListener('click', () => editTracker(() => tracked.clear()));
@@ -189,6 +205,7 @@ function stageCards(ids, focusCard) {
   selected = ids;
   message = '';
   const match = evaluate(selected);
+  GameSound.play(match ? 'point' : 'card');
   if (match) {
     message = `+${match.points} puan · ${match.label}`;
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -221,6 +238,7 @@ function discardCard(id) {
   discardMode = false;
   const card = byId[id];
   message = `${card.label} ${card.rank} atıldı.`;
+  GameSound.play('discard');
   renderSimulator();
   get('sim-undo').focus({ preventScroll: true });
 }
@@ -257,6 +275,7 @@ get('sim-combos').addEventListener('click', (event) => {
   stageCards(combo.ids);
 });
 get('sim-draw').addEventListener('click', () => {
+  GameSound.play('deal');
   game.started = true;
   game.hand.push(...game.deck.splice(0, 5 - game.hand.length));
   lastDiscard = null;
@@ -275,6 +294,7 @@ get('sim-undo').addEventListener('click', () => {
   lastDiscard = null;
   discardMode = false;
   message = 'Son atılan kart geri alındı.';
+  GameSound.play('card');
   renderSimulator(id);
 });
 get('sim-reset').addEventListener('click', () => {
