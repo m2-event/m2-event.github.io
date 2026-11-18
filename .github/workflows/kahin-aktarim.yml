@@ -1,0 +1,636 @@
+name: Kâhin ve ses değişikliklerini aktar
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/kahin-aktarim.yml]
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Test edilmiş site değişiklikleriyle yeni branch oluştur
+        shell: bash
+        run: |
+          git switch -c 2026.11.18-kahin_ve_ses-HEC
+          cat > /tmp/kahin.patch <<'M2_SEER_PATCH'
+          diff --git a/README.md b/README.md
+          index 77b2304..922c377 100644
+          --- a/README.md
+          +++ b/README.md
+          @@ -30,3 +30,9 @@ ZIP arşivini çıkar ve `HEC-Okey-Masasi/index.html` dosyasını tarayıcıda a
+           - Instrument Sans ve Playfair Display yazı tiplerinin lisansları `assets` klasöründedir.
+           
+           Metin2 görselleri WEBZEN / Gameforge'a aittir. HEC Metin2 Masası kişisel bir hayran uygulamasıdır.
+          +
+          +## Kâhin Yarışması ve sesler
+          +
+          +Kâhin Yarışması antrenmanında rakip dokuz farklı kartı karışık sırada oynar. Rakibin sayısı oyun sonuna kadar gizli kalır. Not Defteri, renk ve karşılaştırma ipuçlarından birbiriyle tutarlı olası kartları çıkarır. Kâhin Kuralları ekranı puanlama ve ödülleri açıklar. Oyun sesleri üst çubuktan açılıp kapatılır.
+          +
+          +- [Kâhin Yarışması · Metin2 Wiki](https://tr-wiki.metin2.gameforge.com/index.php/Kahin_Yar%C4%B1%C5%9Fmas%C4%B1) · kurallar ve etkinlik görseli
+          diff --git a/app.js b/app.js
+          index e3eabd2..ec03a1a 100644
+          --- a/app.js
+          +++ b/app.js
+          @@ -3,7 +3,21 @@
+           const { colors, cards, byId, rewards, shuffle, evaluate, combinations, rewardFor } = Okey;
+           const get = (id) => document.getElementById(id);
+           const storageKey = 'hec-okey-tracker-v1';
+          -const sections = { takip: 'Kart Takibi', antrenman: 'Antrenman', rehber: 'Puan Rehberi', 'kral-takip': 'Kralı Yakala / Not Defteri', 'kral-antrenman': 'Kralı Yakala / Antrenman' };
+          +const sections = {
+          +  takip: 'Kart Takibi',
+          +  antrenman: 'Antrenman',
+          +  rehber: 'Puan Rehberi',
+          +  'kral-takip': 'Kralı Yakala / Not Defteri',
+          +  'kral-antrenman': 'Kralı Yakala / Antrenman',
+          +  'kahin-takip': 'Kâhin Yarışması / Not Defteri',
+          +  'kahin-antrenman': 'Kâhin Yarışması / Antrenman',
+          +  'kahin-kurallar': 'Kâhin Yarışması / Kurallar',
+          +};
+          +const heroes = {
+          +  okey: { prefix: '', title: 'Okey Masası', event: 'OKEY ETKİNLİĞİ', description: 'Kartlarını takip et, hamlelerini antrenmanda dene.' },
+          +  king: { prefix: 'kral-', title: 'Kralı Yakala', event: 'KRALI YAKALA ETKİNLİĞİ', description: 'Açılan kartları not et veya kendi tahtanda kralı ara.' },
+          +  seer: { prefix: 'kahin-', title: 'Kâhin Yarışması', event: 'KÂHİN YARIŞMASI', description: 'Rakibin rengini ve sonucunu takip et, sonraki kartını tahmin et.' },
+          +};
+           
+           function loadTracker() {
+             try {
+          @@ -107,16 +121,17 @@ function renderRoute() {
+             });
+             get('breadcrumb').textContent = sections[page];
+             const link = get('hero-link');
+          -  const kingPage = page.startsWith('kral-');
+          +  const key = page.startsWith('kral-') ? 'king' : page.startsWith('kahin-') ? 'seer' : 'okey';
+          +  const hero = heroes[key];
+             const practice = page.endsWith('antrenman');
+          -  const target = practice ? 'takip' : 'antrenman';
+          -  link.href = '#'+ (kingPage ? 'kral-' : '') + target;
+          -  link.firstChild.nodeValue = practice ? (kingPage ? 'Not defterine geç ' : 'Kart takibine geç ') : 'Antrenmana geç ';
+          -  get('hero').classList.toggle('king-hero', kingPage);
+          -  get('hero-title').textContent = kingPage ? 'Kralı Yakala' : 'Okey Masası';
+          -  get('hero-event').textContent = kingPage ? 'METİN2 KRALI YAKALA ETKİNLİĞİ' : 'METİN2 OKEY ETKİNLİĞİ';
+          -  get('hero-description').textContent = kingPage ? 'Açılan kartları not et veya kendi tahtanda kralı ara.' : 'Kartlarını takip et, hamlelerini antrenmanda dene.';
+          -  get('hero-credit').textContent = kingPage ? 'METİN2 · ETKİNLİK GÖRSELİ' : 'METİN2 · OYUN İÇİ GÖRÜNTÜ';
+          +  link.href = `#${hero.prefix}${practice ? 'takip' : 'antrenman'}`;
+          +  link.firstChild.nodeValue = practice ? (hero.prefix ? 'Not defterine geç ' : 'Kart takibine geç ') : 'Antrenmana geç ';
+          +  get('hero').classList.toggle('king-hero', key === 'king');
+          +  get('hero').classList.toggle('seer-hero', key === 'seer');
+          +  get('hero-title').textContent = hero.title;
+          +  get('hero-event').textContent = `METİN2 ${hero.event}`;
+          +  get('hero-description').textContent = hero.description;
+          +  get('hero-credit').textContent = key === 'okey' ? 'METİN2 · OYUN İÇİ GÖRÜNTÜ' : 'METİN2 · ETKİNLİK GÖRSELİ';
+           }
+           
+           function renderCard(id, onTable = false) {
+          @@ -175,6 +190,7 @@ get('tracker-grid').addEventListener('click', (event) => {
+             const button = event.target.closest('[data-card]');
+             if (!button) return;
+             const id = button.dataset.card;
+          +  GameSound.play(tracked.has(id) ? 'card' : 'discard');
+             editTracker(() => tracked.has(id) ? tracked.delete(id) : tracked.add(id));
+           });
+           get('tracker-reset').addEventListener('click', () => editTracker(() => tracked.clear()));
+          @@ -189,6 +205,7 @@ function stageCards(ids, focusCard) {
+             selected = ids;
+             message = '';
+             const match = evaluate(selected);
+          +  GameSound.play(match ? 'point' : 'card');
+             if (match) {
+               message = `+${match.points} puan · ${match.label}`;
+               const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+          @@ -221,6 +238,7 @@ function discardCard(id) {
+             discardMode = false;
+             const card = byId[id];
+             message = `${card.label} ${card.rank} atıldı.`;
+          +  GameSound.play('discard');
+             renderSimulator();
+             get('sim-undo').focus({ preventScroll: true });
+           }
+          @@ -257,6 +275,7 @@ get('sim-combos').addEventListener('click', (event) => {
+             stageCards(combo.ids);
+           });
+           get('sim-draw').addEventListener('click', () => {
+          +  GameSound.play('deal');
+             game.started = true;
+             game.hand.push(...game.deck.splice(0, 5 - game.hand.length));
+             lastDiscard = null;
+          @@ -275,6 +294,7 @@ get('sim-undo').addEventListener('click', () => {
+             lastDiscard = null;
+             discardMode = false;
+             message = 'Son atılan kart geri alındı.';
+          +  GameSound.play('card');
+             renderSimulator(id);
+           });
+           get('sim-reset').addEventListener('click', () => {
+          diff --git a/index.html b/index.html
+          index 00ab4cb..e8e5750 100644
+          --- a/index.html
+          +++ b/index.html
+          @@ -4,12 +4,15 @@
+             <meta charset="utf-8">
+             <meta name="viewport" content="width=device-width, initial-scale=1">
+             <meta name="theme-color" content="#1d211d">
+          -  <title>HEC Metin2 Masası · Okey ve Kralı Yakala</title>
+          +  <title>HEC Metin2 Masası · Okey, Kralı Yakala ve Kâhin Yarışması</title>
+             <link rel="stylesheet" href="styles.css">
+             <script src="okey.js" defer></script>
+             <script src="king.js" defer></script>
+          +  <script src="seer.js" defer></script>
+          +  <script src="sound.js" defer></script>
+             <script src="app.js" defer></script>
+             <script src="king-ui.js" defer></script>
+          +  <script src="seer-ui.js" defer></script>
+           </head>
+           <body>
+             <aside class="sidebar" aria-label="Uygulama menüsü">
+          @@ -25,12 +28,16 @@
+                 <p class="nav-group king-nav-group">Kralı Yakala</p>
+                 <a href="#kral-takip" data-page="kral-takip"><span class="nav-icon grid-icon" aria-hidden="true"></span>Kral Not Defteri</a>
+                 <a href="#kral-antrenman" data-page="kral-antrenman"><span class="nav-icon cards-icon" aria-hidden="true"></span>Kral Antrenmanı</a>
+          +      <p class="nav-group king-nav-group">Kâhin Yarışması</p>
+          +      <a href="#kahin-takip" data-page="kahin-takip"><span class="nav-icon grid-icon" aria-hidden="true"></span>Kâhin Not Defteri</a>
+          +      <a href="#kahin-antrenman" data-page="kahin-antrenman"><span class="nav-icon cards-icon" aria-hidden="true"></span>Kâhin Antrenmanı</a>
+          +      <a href="#kahin-kurallar" data-page="kahin-kurallar"><span class="nav-icon book-icon" aria-hidden="true"></span>Kâhin Kuralları</a>
+               </nav>
+               <div class="sidebar-end"><span class="online-dot" aria-hidden="true"></span> Çevrimdışı kullanılabilir</div>
+             </aside>
+           
+             <div class="main">
+          -    <header class="topbar"><span>Metin2 <span class="slash">/</span> <strong id="breadcrumb">Kart Takibi</strong></span><span class="top-mono">HEC</span></header>
+          +    <header class="topbar"><span>Metin2 <span class="slash">/</span> <strong id="breadcrumb">Kart Takibi</strong></span><button id="sound-toggle" class="outline sound-toggle" type="button" aria-label="Oyun sesleri" aria-pressed="false"><i aria-hidden="true"></i><span>Ses kapalı</span></button></header>
+               <main class="content">
+                 <section id="hero" class="hero" aria-labelledby="hero-title">
+                   <div class="hero-copy">
+          @@ -160,6 +167,67 @@
+                     </section>
+                   </aside>
+                 </section>
+          +      <section id="kahin-takip" class="workspace" aria-label="Kâhin kart takibi" hidden>
+          +        <div class="panel seer-panel">
+          +          <div class="panel-head">
+          +            <div><h2>Kâhin Not Defteri</h2><p>Oynadığın kartı ve rakibin verdiği iki ipucunu kaydet.</p></div>
+          +            <div class="head-actions"><button id="seer-undo" class="outline" type="button">Geri al</button><button id="seer-reset" class="outline" type="button">Sıfırla</button></div>
+          +          </div>
+          +          <form id="seer-note-form" class="seer-form">
+          +            <label>Senin kartın <select name="own" required><option value="">Seç</option></select></label>
+          +            <label>Rakibin rengi <select name="color" required><option value="">Seç</option><option value="black">Siyah</option><option value="white">Beyaz</option></select></label>
+          +            <label>Karşılaştırma <select name="relation" required><option value="">Seç</option><option value="lower">Rakip daha düşük</option><option value="equal">Eşit</option><option value="higher">Rakip daha yüksek</option></select></label>
+          +            <button id="seer-record" class="primary" type="submit">Turu kaydet</button>
+          +          </form>
+          +          <p id="seer-note-status" class="seer-status" role="status"></p>
+          +          <div id="seer-note-history"></div>
+          +        </div>
+          +        <aside class="rail">
+          +          <section class="panel deck-panel seer-side"><h2>Rakipte kalmış olabilecekler</h2><div id="seer-note-remaining" class="seer-pool"></div></section>
+          +        </aside>
+          +      </section>
+          +
+          +      <section id="kahin-antrenman" class="workspace" aria-label="Kâhin antrenmanı" hidden>
+          +        <div class="panel seer-panel">
+          +          <div class="panel-head"><div><h2>Kâhin Antrenmanı</h2><p>Her tur bir kart oyna ve rakibin kartını ipuçlarından tahmin et.</p></div><button id="seer-new-game" class="outline" type="button">Yeni oyun</button></div>
+          +          <div class="seer-arena">
+          +            <div class="seer-card-side"><span>Senin kartın</span><div id="seer-own-card" class="seer-match-card" aria-hidden="true">—</div></div>
+          +            <div id="seer-round-count" class="seer-round-count">Tur 1 / 9</div>
+          +            <div class="seer-card-side"><span>Rakibin kartı</span><div id="seer-rival-card" class="seer-match-card" aria-hidden="true">?</div></div>
+          +          </div>
+          +          <p id="seer-game-status" class="seer-status" role="status"></p>
+          +          <div id="seer-hand" class="seer-hand" aria-label="Oynanabilir tarot kartları"></div>
+          +          <div id="seer-game-history"></div>
+          +        </div>
+          +        <aside class="rail">
+          +          <section class="panel deck-panel seer-side">
+          +            <h2>Düello Skoru</h2>
+          +            <div class="seer-score"><span>Sen<strong id="seer-own-score">0</strong></span><span>Rakip<strong id="seer-rival-score">0</strong></span></div>
+          +            <p id="seer-reward" class="score-note">Jetonlar 9 tur sonunda hesaplanır.</p>
+          +          </section>
+          +          <section class="panel deck-panel seer-side"><h2>Rakipte kalmış olabilecekler</h2><div id="seer-game-remaining" class="seer-pool"></div></section>
+          +        </aside>
+          +      </section>
+          +
+          +      <section id="kahin-kurallar" class="workspace" aria-label="Kâhin yarışması kuralları" hidden>
+          +        <div class="panel seer-panel seer-rules">
+          +          <div class="panel-head"><div><h2>Oyun Kuralları</h2></div></div>
+          +          <ol>
+          +            <li>İki oyuncu da 0’dan 8’e kadar birer kart alır. Çift sayılar siyah, tek sayılar beyazdır. Her kart bir kez kullanılır.</li>
+          +            <li>Her tur bir kart seçersin. Rakibin kartının sayısı gizli kalır. Kartının rengini ve seninkine göre düşük, eşit veya yüksek olduğunu öğrenirsin.</li>
+          +            <li>Büyük kartı oynayan 1 puan alır. Eşitlikte iki taraf da puan alamaz.</li>
+          +            <li>Dokuz kart da oynandığında düello biter. Puanın kadar Kâhin Jetonu alırsın. Kazandıysan skor farkı kadar ek jeton kazanırsın.</li>
+          +          </ol>
+          +          <h3>Metin2’de etkinliğe katılım</h3>
+          +          <p>Etkinliğe 30. seviyeden itibaren katılabilirsin. Bir düello 1 Tarot Seti ve 30.000 Yang gerektirir. Etkinlik göreviyle 18 Tarot Kartını bir sete çevirebilirsin. Bu işlem günde en fazla beş kez yapılabilir.</p>
+          +          <p><a href="https://tr-wiki.metin2.gameforge.com/index.php/Kahin_Yar%C4%B1%C5%9Fmas%C4%B1" target="_blank" rel="noopener">Metin2 Wiki’de Kâhin Yarışması</a></p>
+          +        </div>
+          +        <aside class="rail">
+          +          <section class="panel reward-panel"><h2>Jetonla alınan ödüller</h2>
+          +            <dl class="seer-rewards"><div><dt>Bronz Kâhin Sandığı</dt><dd>4 jeton</dd></div><div><dt>Gümüş Kâhin Sandığı</dt><dd>35 jeton</dd></div><div><dt>Altın Kâhin Sandığı</dt><dd>60 jeton</dd></div><div><dt>Sıralama bağışı</dt><dd>15 jeton</dd></div></dl>
+          +          </section>
+          +        </aside>
+          +      </section>
+                 <footer><span>© Metin2 görselleri · WEBZEN / Gameforge</span><span>HEC Metin2 Masası</span></footer>
+               </main>
+             </div>
+          diff --git a/king-ui.js b/king-ui.js
+          index 1d09572..07efb9c 100644
+          --- a/king-ui.js
+          +++ b/king-ui.js
+          @@ -85,6 +85,7 @@
+               }
+           
+               function changeNotes(next, message) {
+          +      GameSound.play('card');
+                 previousNotes = notes;
+                 notes = next;
+                 noteMessage = message;
+          @@ -230,7 +231,10 @@
+             const gameBoard = get('king-board');
+             gameBoard.addEventListener('click', (event) => {
+               const button = event.target.closest('[data-king-cell]');
+          -    if (!button || !play(game, Number(button.dataset.kingCell))) return;
+          +    if (!button) return;
+          +    const move = play(game, Number(button.dataset.kingCell));
+          +    if (!move) return;
+          +    GameSound.play(move.trapped ? 'trap' : move.bingo || move.points === 100 ? 'win' : move.points ? 'point' : 'miss');
+               const keyboard = event.detail === 0;
+               renderGame();
+               if (keyboard) (gameBoard.querySelector('button:not(:disabled)') || get('king-new-game')).focus({ preventScroll: true });
+          @@ -239,6 +243,7 @@
+               game = createGame();
+               practiceNotes.reset();
+               renderGame();
+          +    GameSound.play('deal');
+             });
+             get('king-note-last').addEventListener('click', () => {
+               const { index, revealed, nearFive, own } = game.last;
+          diff --git a/seer-ui.js b/seer-ui.js
+          new file mode 100644
+          index 0000000..7d452f7
+          --- /dev/null
+          +++ b/seer-ui.js
+          @@ -0,0 +1,143 @@
+          +'use strict';
+          +
+          +(() => {
+          +  const { ranks, colors, relations, colorOf, createGame, play, score, analyze } = Seer;
+          +  const notesKey = 'hec-seer-notes-v1';
+          +  const form = get('seer-note-form');
+          +  const ownField = form.elements.namedItem('own');
+          +  let game = createGame();
+          +  let notes = loadNotes();
+          +
+          +  function loadNotes() {
+          +    try {
+          +      const saved = JSON.parse(localStorage.getItem(notesKey));
+          +      if (Array.isArray(saved) && saved.length <= ranks.length &&
+          +          saved.every((round) => ranks.includes(round?.own) &&
+          +            Object.hasOwn(colors, round.color) && Object.hasOwn(relations, round.relation)) &&
+          +          new Set(saved.map((round) => round.own)).size === saved.length &&
+          +          analyze(saved)) return saved;
+          +    } catch {}
+          +    return [];
+          +  }
+          +
+          +  function saveNotes(message) {
+          +    try { localStorage.setItem(notesKey, JSON.stringify(notes)); } catch {}
+          +    renderNotes(message);
+          +  }
+          +
+          +  function renderRounds(target, rounds, info, revealed = null) {
+          +    if (!rounds.length) {
+          +      target.innerHTML = '<p class="muted seer-empty">Henüz tur yok.</p>';
+          +      return;
+          +    }
+          +    target.innerHTML = `<div class="seer-history-wrap"><table class="seer-history">
+          +      <caption>Tur Geçmişi</caption>
+          +      <thead><tr><th scope="col">Tur</th><th scope="col">Sen</th><th scope="col">Rakip</th><th scope="col">Sonuç</th><th scope="col">${revealed ? 'Rakibin kartı' : 'Olası kartlar'}</th></tr></thead>
+          +      <tbody>${rounds.map((round, index) => `
+          +        <tr><th scope="row">${index + 1}</th><td>${round.own}</td><td>${colors[round.color]}</td>
+          +          <td>${relations[round.relation]}</td><td>${revealed ? revealed[index] : info.byRound[index].join(', ')}</td></tr>`
+          +      ).join('')}</tbody></table></div>`;
+          +  }
+          +
+          +  function renderRemaining(target, remaining) {
+          +    target.innerHTML = remaining.length
+          +      ? remaining.map((rank) => `<span class="seer-chip seer-${colorOf(rank)}" aria-label="${rank}, ${colors[colorOf(rank)]}">${rank}</span>`).join('')
+          +      : '<p class="muted">Rakibin eli boş.</p>';
+          +  }
+          +
+          +  function renderNotes(message = '') {
+          +    const info = analyze(notes);
+          +    ownField.innerHTML = '<option value="">Seç</option>' +
+          +      ranks.filter((rank) => !notes.some((note) => note.own === rank))
+          +        .map((rank) => `<option value="${rank}">${rank} · ${colors[colorOf(rank)]}</option>`).join('');
+          +    get('seer-record').disabled = notes.length === ranks.length;
+          +    get('seer-undo').disabled = !notes.length;
+          +    get('seer-reset').disabled = !notes.length;
+          +    get('seer-note-status').textContent = message;
+          +    renderRounds(get('seer-note-history'), notes, info);
+          +    renderRemaining(get('seer-note-remaining'), info.remaining);
+          +  }
+          +
+          +  form.addEventListener('submit', (event) => {
+          +    event.preventDefault();
+          +    const fields = new FormData(form);
+          +    const own = fields.get('own');
+          +    if (own === '') return;
+          +    const round = { own: Number(own), color: fields.get('color'), relation: fields.get('relation') };
+          +    const next = [...notes, round];
+          +    if (!analyze(next)) {
+          +      get('seer-note-status').textContent = 'Bu ipucu önceki turlarla uyuşmuyor. Kartı, rengi ve sonucu kontrol et.';
+          +      GameSound.play('miss');
+          +      return;
+          +    }
+          +    notes = next;
+          +    form.reset();
+          +    saveNotes(`${notes.length}. tur kaydedildi.`);
+          +    GameSound.play('card');
+          +  });
+          +
+          +  get('seer-undo').addEventListener('click', () => {
+          +    notes.pop();
+          +    saveNotes('Son tur silindi.');
+          +    GameSound.play('discard');
+          +  });
+          +
+          +  get('seer-reset').addEventListener('click', () => {
+          +    notes = [];
+          +    form.reset();
+          +    saveNotes('Not defteri temizlendi.');
+          +    GameSound.play('deal');
+          +  });
+          +
+          +  function matchCard(id, rank, color, fallback) {
+          +    const card = get(id);
+          +    card.className = `seer-match-card${color ? ' seer-' + color : ''}`;
+          +    card.textContent = rank ?? fallback;
+          +  }
+          +
+          +  function renderGame() {
+          +    const count = game.rounds.length;
+          +    const finished = count === ranks.length;
+          +    const last = game.rounds.at(-1);
+          +    const info = analyze(game.rounds);
+          +    const result = score(game.rounds);
+          +    const used = new Set(game.rounds.map((round) => round.own));
+          +    get('seer-round-count').textContent = finished ? 'Düello bitti' : `Tur ${count + 1} / 9`;
+          +    matchCard('seer-own-card', last?.own, last && colorOf(last.own), '—');
+          +    matchCard('seer-rival-card', finished ? game.deck.at(-1) : null, last?.color, '?');
+          +    get('seer-own-score').textContent = result.own;
+          +    get('seer-rival-score').textContent = result.rival;
+          +    get('seer-reward').textContent = finished ? `Antrenman sonucu · ${result.coins} jeton` : 'Jetonlar 9 tur sonunda hesaplanır.';
+          +    const outcome = result.own > result.rival ? 'Kazandın.' : result.own < result.rival ? 'Rakip kazandı.' : 'Düello berabere.';
+          +    get('seer-game-status').textContent = finished ? `${outcome} ${result.coins} jeton.` : last
+          +      ? `${count}. tur · Rakip ${colors[last.color].toLocaleLowerCase('tr')} kart oynadı. ${relations[last.relation]}.`
+          +      : 'İlk tur için bir kart seç.';
+          +    get('seer-hand').innerHTML = ranks.map((rank) => `
+          +      <button type="button" class="seer-card seer-${colorOf(rank)}" data-seer-card="${rank}"
+          +        aria-label="${rank}, ${colors[colorOf(rank)]}${used.has(rank) ? ', oynandı' : ''}" ${used.has(rank) ? 'disabled' : ''}>${rank}</button>`
+          +    ).join('');
+          +    renderRounds(get('seer-game-history'), game.rounds, info, finished ? game.deck : null);
+          +    renderRemaining(get('seer-game-remaining'), info.remaining);
+          +  }
+          +
+          +  get('seer-hand').addEventListener('click', (event) => {
+          +    const button = event.target.closest('[data-seer-card]');
+          +    if (!button) return;
+          +    const result = play(game, Number(button.dataset.seerCard));
+          +    if (!result) return;
+          +    const total = score(game.rounds);
+          +    const finishWin = game.rounds.length === ranks.length && total.own > total.rival;
+          +    GameSound.play(finishWin ? 'win' : result.relation === 'lower' ? 'point' : result.relation === 'equal' ? 'tie' : 'miss');
+          +    renderGame();
+          +    if (event.detail === 0) (get('seer-hand').querySelector('button:not(:disabled)') || get('seer-new-game')).focus({ preventScroll: true });
+          +  });
+          +
+          +  get('seer-new-game').addEventListener('click', () => {
+          +    game = createGame();
+          +    renderGame();
+          +    GameSound.play('deal');
+          +  });
+          +
+          +  renderNotes();
+          +  renderGame();
+          +})();
+          diff --git a/seer.js b/seer.js
+          new file mode 100644
+          index 0000000..9940500
+          --- /dev/null
+          +++ b/seer.js
+          @@ -0,0 +1,80 @@
+          +'use strict';
+          +
+          +const Seer = (() => {
+          +  const ranks = Object.freeze(Array.from({ length: 9 }, (_, index) => index));
+          +  const colors = Object.freeze({ black: 'Siyah', white: 'Beyaz' });
+          +  const relations = Object.freeze({ lower: 'Rakip daha düşük', equal: 'Eşit', higher: 'Rakip daha yüksek' });
+          +  const colorOf = (rank) => rank % 2 === 0 ? 'black' : 'white';
+          +  const relationOf = (own, rival) => rival < own ? 'lower' : rival > own ? 'higher' : 'equal';
+          +
+          +  function createGame(random = Math.random) {
+          +    const deck = [...ranks];
+          +    for (let i = deck.length - 1; i > 0; i--) {
+          +      const j = Math.floor(random() * (i + 1));
+          +      [deck[i], deck[j]] = [deck[j], deck[i]];
+          +    }
+          +    return { deck, rounds: [] };
+          +  }
+          +
+          +  function play(game, own) {
+          +    if (!ranks.includes(own) || game.rounds.length >= ranks.length ||
+          +        game.rounds.some((round) => round.own === own)) return null;
+          +    const rival = game.deck[game.rounds.length];
+          +    const round = { own, color: colorOf(rival), relation: relationOf(own, rival) };
+          +    game.rounds.push(round);
+          +    return round;
+          +  }
+          +
+          +  function score(rounds) {
+          +    let own = 0;
+          +    let rival = 0;
+          +    for (const round of rounds) {
+          +      if (round.relation === 'lower') own++;
+          +      if (round.relation === 'higher') rival++;
+          +    }
+          +    return { own, rival, coins: own + Math.max(0, own - rival) };
+          +  }
+          +
+          +  function analyze(rounds) {
+          +    const options = rounds.map(({ own, color, relation }) =>
+          +      ranks.filter((rank) => colorOf(rank) === color && relationOf(own, rank) === relation)
+          +    );
+          +    const memo = new Map();
+          +    function possible(index, used) {
+          +      if (index === options.length) return true;
+          +      const key = (index << ranks.length) | used;
+          +      if (!memo.has(key)) {
+          +        memo.set(key, options[index].some((rank) => {
+          +          const bit = 1 << rank;
+          +          return !(used & bit) && possible(index + 1, used | bit);
+          +        }));
+          +      }
+          +      return memo.get(key);
+          +    }
+          +
+          +    if (!possible(0, 0)) return null;
+          +    let states = new Set([0]);
+          +    const byRound = options.map((candidates, index) => {
+          +      const next = new Set();
+          +      const valid = candidates.filter((rank) => {
+          +        const bit = 1 << rank;
+          +        let fits = false;
+          +        for (const used of states) {
+          +          if (!(used & bit) && possible(index + 1, used | bit)) {
+          +            next.add(used | bit);
+          +            fits = true;
+          +          }
+          +        }
+          +        return fits;
+          +      });
+          +      states = next;
+          +      return valid;
+          +    });
+          +    const remaining = ranks.filter((rank) => [...states].some((used) => !(used & (1 << rank))));
+          +    return { byRound, remaining };
+          +  }
+          +
+          +  return { ranks, colors, relations, colorOf, createGame, play, score, analyze };
+          +})();
+          +
+          +if (typeof module !== 'undefined') module.exports = Seer;
+          diff --git a/sound.js b/sound.js
+          new file mode 100644
+          index 0000000..c67045a
+          --- /dev/null
+          +++ b/sound.js
+          @@ -0,0 +1,63 @@
+          +'use strict';
+          +
+          +const GameSound = (() => {
+          +  const button = document.getElementById('sound-toggle');
+          +  const storageKey = 'hec-game-sound-v1';
+          +  let enabled = readPreference();
+          +  let context;
+          +
+          +  const effects = {
+          +    card: [[230, 0, .075, .045, 'triangle']],
+          +    deal: [[250, 0, .065, .04, 'triangle'], [370, .055, .085, .035, 'triangle']],
+          +    discard: [[185, 0, .12, .045, 'triangle']],
+          +    point: [[523, 0, .125, .055, 'sine'], [659, .075, .16, .05, 'sine']],
+          +    win: [[523, 0, .15, .055, 'sine'], [659, .08, .15, .05, 'sine'], [784, .16, .22, .045, 'sine']],
+          +    miss: [[277, 0, .11, .04, 'triangle'], [196, .08, .14, .045, 'sine']],
+          +    tie: [[330, 0, .105, .04, 'sine'], [330, .10, .11, .025, 'sine']],
+          +    trap: [[220, 0, .12, .055, 'triangle'], [147, .08, .19, .05, 'triangle']],
+          +  };
+          +
+          +  function readPreference() {
+          +    try { return localStorage.getItem(storageKey) !== 'off'; }
+          +    catch { return true; }
+          +  }
+          +
+          +  function updateButton() {
+          +    button.setAttribute('aria-pressed', enabled);
+          +    button.querySelector('span').textContent = enabled ? 'Ses açık' : 'Ses kapalı';
+          +  }
+          +
+          +  function play(effect) {
+          +    const Audio = window.AudioContext || window.webkitAudioContext;
+          +    if (!enabled || !Audio || !effects[effect]) return;
+          +    try {
+          +      context ||= new Audio();
+          +      if (context.state === 'suspended') context.resume().catch(() => {});
+          +      const now = context.currentTime;
+          +      for (const [pitch, offset, duration, volume, wave] of effects[effect]) {
+          +        const tone = context.createOscillator();
+          +        const gain = context.createGain();
+          +        const start = now + offset;
+          +        tone.type = wave;
+          +        tone.frequency.setValueAtTime(pitch, start);
+          +        gain.gain.setValueAtTime(.001, start);
+          +        gain.gain.exponentialRampToValueAtTime(volume, start + .012);
+          +        gain.gain.exponentialRampToValueAtTime(.001, start + duration);
+          +        tone.connect(gain);
+          +        gain.connect(context.destination);
+          +        tone.start(start);
+          +        tone.stop(start + duration);
+          +      }
+          +    } catch { /* Gameplay remains available if audio is blocked. */ }
+          +  }
+          +
+          +  button.addEventListener('click', () => {
+          +    enabled = !enabled;
+          +    try { localStorage.setItem(storageKey, enabled ? 'on' : 'off'); } catch {}
+          +    updateButton();
+          +    if (enabled) play('card');
+          +    else if (context?.state === 'running') context.suspend().catch(() => {});
+          +  });
+          +  updateButton();
+          +  return { play };
+          +})();
+          diff --git a/styles.css b/styles.css
+          index 7c05a8e..b383fb0 100644
+          --- a/styles.css
+          +++ b/styles.css
+          @@ -365,3 +365,54 @@ footer { padding: 16px 1px 19px; color: #67685d; display: flex; justify-content:
+             border-radius: 2px; background: #ffc5b9; color: #591d23; padding: 1px 4px;
+             font-size: 9px; font-weight: 700; line-height: 1.15;
+           }
+          +
+          +.sound-toggle { display: inline-flex; flex: none; gap: 7px; align-items: center; padding: 0 9px; min-height: 31px; }
+          +.sound-toggle i { width: 9px; height: 12px; background: currentColor; clip-path: polygon(0 33%, 42% 33%, 100% 0, 100% 100%, 42% 67%, 0 67%); }
+          +.sound-toggle[aria-pressed="true"] { color: #3a553d; border-color: #b8c6af; background: #eff3e9; }
+          +.sound-toggle[aria-pressed="false"] { color: #695e55; }
+          +.seer-hero { background: #282037; }
+          +.seer-hero::before { background: url(assets/seer-banner.jpg) right center / cover no-repeat; filter: none; }
+          +.seer-hero::after { background: linear-gradient(90deg, #22192dee 0%, #22192ddf 43%, #22192d44 82%); }
+          +.seer-panel { padding: 22px 23px; }
+          +.seer-panel .panel-head { flex-wrap: wrap; }
+          +.seer-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+          +.seer-form label { display: grid; gap: 5px; flex: 1 1 110px; font-size: 12px; font-weight: 700; }
+          +.seer-form select { border: 1px solid #ddd5cf; border-radius: 7px; padding: 7px; background: #fcfaf6; color: #352c37; font: inherit; min-height: 35px; }
+          +.seer-status { min-height: 1.3em; margin: 11px 0; color: #5b4268; font-size: 13px; font-weight: 600; }
+          +.seer-status:empty { display: none; }
+          +.seer-arena { display: flex; justify-content: center; align-items: center; gap: clamp(10px, 5vw, 38px); border: 1px solid #51415f; border-radius: 8px; background: radial-gradient(ellipse at top,#523d5d,#2a2033 78%); color: #f4e8d7; padding: 14px 9px; }
+          +.seer-card-side { display: grid; justify-items: center; gap: 6px; text-align: center; font-size: 11px; }
+          +.seer-round-count { color: #d9bd83; font-size: 12px; font-weight: 700; text-align: center; }
+          +.seer-card,.seer-match-card,.seer-chip { display: inline-grid; place-items: center; border-radius: 6px; border: 1px solid #a18b9f; font-weight: 700; }
+          +.seer-match-card { width: 47px; height: 60px; font: 700 28px var(--serif); }
+          +.seer-black { color: #fff3d4; background: #302637; border-color: #74607e; }
+          +.seer-white { color: #37293a; background: #f6ecda; border-color: #d8c9ae; }
+          +.seer-hand { display: grid; grid-template-columns: repeat(9,minmax(0,1fr)); gap: 4px; margin-top: 12px; }
+          +.seer-card { min-height: 44px; cursor: pointer; font-size: 15px; }
+          +.seer-card:hover:not(:disabled) { border-color: #a16ba4; box-shadow: inset 0 0 0 1px #a16ba4; }
+          +.seer-card:disabled { opacity: .42; cursor: default; text-decoration: line-through; }
+          +.seer-pool { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+          +.seer-chip { width: 23px; height: 27px; font-size: 12px; }
+          +.seer-score { display: flex; gap: 13px; margin: 10px 0; }
+          +.seer-score > span { flex: 1; padding: 5px 8px; background: #f5f0eb; border-radius: 6px; font-size: 12px; }
+          +.seer-score strong { display: block; font: 700 26px var(--serif); }
+          +.seer-history-wrap { overflow-x: auto; margin-top: 18px; }
+          +.seer-history { width: 100%; border-collapse: collapse; font-size: 12px; text-align: left; }
+          +.seer-history caption { padding-bottom: 7px; text-align: left; font-weight: 700; }
+          +.seer-history :is(th,td) { padding: 7px 5px; border-bottom: 1px solid var(--line); }
+          +.seer-history thead { background: #f7f2eb; }
+          +.seer-empty { margin-top: 13px; }
+          +.seer-rules ol,.seer-rules p { font-size: 14px; line-height: 1.65; }
+          +.seer-rules ol { padding-left: 20px; }
+          +.seer-rules li { margin-bottom: 7px; }
+          +.seer-rules h3 { font-size: 16px; margin-top: 17px; }
+          +.seer-rules a { text-decoration: underline; }
+          +.seer-rewards { font-size: 12px; margin-bottom: 0; }
+          +.seer-rewards div { display: flex; justify-content: space-between; gap: 8px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+          +.seer-rewards dd { margin: 0; white-space: nowrap; font-weight: 700; }
+          +
+          +@media (max-width: 620px) {
+          +  .seer-panel { padding: 14px; }
+          +  .seer-hand { grid-template-columns: repeat(5,minmax(0,1fr)); }
+          +  .nav a { white-space: normal; text-align: center; }
+          +}
+          M2_SEER_PATCH
+          git apply --index /tmp/kahin.patch
+          curl --fail --silent --show-error --location --retry 3 --max-time 45 'https://tr-wiki.metin2.gameforge.com/images/thumb/7/77/Kahin_Yar%C4%B1%C5%9Fmas%C4%B1_2024_Banner.jpg/875px-Kahin_Yar%C4%B1%C5%9Fmas%C4%B1_2024_Banner.jpg' -o assets/seer-banner.jpg
+          echo '2dc4cc8ab27f8e8ce519b6e82ff5082fbb1ebc151ec0b598add222b4a2c8f26d  assets/seer-banner.jpg' | sha256sum --check
+          git add assets/seer-banner.jpg
+          for f in *.js; do node --check "$f"; done
+          git diff --cached --check
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Kâhin Yarışması ve oyun seslerini ekle"
+          git push origin HEAD:refs/heads/2026.11.18-kahin_ve_ses-HEC
