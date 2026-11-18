@@ -4,12 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#1d211d">
-  <title>HEC Metin2 Masası · Okey ve Kralı Yakala</title>
+  <title>HEC Metin2 Masası · Okey, Kralı Yakala ve Kâhin Yarışması</title>
   <link rel="stylesheet" href="styles.css">
   <script src="okey.js" defer></script>
   <script src="king.js" defer></script>
+  <script src="seer.js" defer></script>
+  <script src="sound.js" defer></script>
   <script src="app.js" defer></script>
   <script src="king-ui.js" defer></script>
+  <script src="seer-ui.js" defer></script>
 </head>
 <body>
   <aside class="sidebar" aria-label="Uygulama menüsü">
@@ -25,12 +28,16 @@
       <p class="nav-group king-nav-group">Kralı Yakala</p>
       <a href="#kral-takip" data-page="kral-takip"><span class="nav-icon grid-icon" aria-hidden="true"></span>Kral Not Defteri</a>
       <a href="#kral-antrenman" data-page="kral-antrenman"><span class="nav-icon cards-icon" aria-hidden="true"></span>Kral Antrenmanı</a>
+      <p class="nav-group king-nav-group">Kâhin Yarışması</p>
+      <a href="#kahin-takip" data-page="kahin-takip"><span class="nav-icon grid-icon" aria-hidden="true"></span>Kâhin Not Defteri</a>
+      <a href="#kahin-antrenman" data-page="kahin-antrenman"><span class="nav-icon cards-icon" aria-hidden="true"></span>Kâhin Antrenmanı</a>
+      <a href="#kahin-kurallar" data-page="kahin-kurallar"><span class="nav-icon book-icon" aria-hidden="true"></span>Kâhin Kuralları</a>
     </nav>
     <div class="sidebar-end"><span class="online-dot" aria-hidden="true"></span> Çevrimdışı kullanılabilir</div>
   </aside>
 
   <div class="main">
-    <header class="topbar"><span>Metin2 <span class="slash">/</span> <strong id="breadcrumb">Kart Takibi</strong></span><span class="top-mono">HEC</span></header>
+    <header class="topbar"><span>Metin2 <span class="slash">/</span> <strong id="breadcrumb">Kart Takibi</strong></span><button id="sound-toggle" class="outline sound-toggle" type="button" aria-label="Oyun sesleri" aria-pressed="false"><i aria-hidden="true"></i><span>Ses kapalı</span></button></header>
     <main class="content">
       <section id="hero" class="hero" aria-labelledby="hero-title">
         <div class="hero-copy">
@@ -157,6 +164,67 @@
               </ul>
               <a href="https://tr-wiki.metin2.gameforge.com/index.php/Kral%C4%B1_Yakala_Etkinli%C4%9Fi" target="_blank" rel="noopener">Metin2 Wiki</a>
             </details>
+          </section>
+        </aside>
+      </section>
+      <section id="kahin-takip" class="workspace" aria-label="Kâhin kart takibi" hidden>
+        <div class="panel seer-panel">
+          <div class="panel-head">
+            <div><h2>Kâhin Not Defteri</h2><p>Oynadığın kartı ve rakibin verdiği iki ipucunu kaydet.</p></div>
+            <div class="head-actions"><button id="seer-undo" class="outline" type="button">Geri al</button><button id="seer-reset" class="outline" type="button">Sıfırla</button></div>
+          </div>
+          <form id="seer-note-form" class="seer-form">
+            <label>Senin kartın <select name="own" required><option value="">Seç</option></select></label>
+            <label>Rakibin rengi <select name="color" required><option value="">Seç</option><option value="black">Siyah</option><option value="white">Beyaz</option></select></label>
+            <label>Karşılaştırma <select name="relation" required><option value="">Seç</option><option value="lower">Rakip daha düşük</option><option value="equal">Eşit</option><option value="higher">Rakip daha yüksek</option></select></label>
+            <button id="seer-record" class="primary" type="submit">Turu kaydet</button>
+          </form>
+          <p id="seer-note-status" class="seer-status" role="status"></p>
+          <div id="seer-note-history"></div>
+        </div>
+        <aside class="rail">
+          <section class="panel deck-panel seer-side"><h2>Rakipte kalmış olabilecekler</h2><div id="seer-note-remaining" class="seer-pool"></div></section>
+        </aside>
+      </section>
+
+      <section id="kahin-antrenman" class="workspace" aria-label="Kâhin antrenmanı" hidden>
+        <div class="panel seer-panel">
+          <div class="panel-head"><div><h2>Kâhin Antrenmanı</h2><p>Her tur bir kart oyna ve rakibin kartını ipuçlarından tahmin et.</p></div><button id="seer-new-game" class="outline" type="button">Yeni oyun</button></div>
+          <div class="seer-arena">
+            <div class="seer-card-side"><span>Senin kartın</span><div id="seer-own-card" class="seer-match-card" aria-hidden="true">—</div></div>
+            <div id="seer-round-count" class="seer-round-count">Tur 1 / 9</div>
+            <div class="seer-card-side"><span>Rakibin kartı</span><div id="seer-rival-card" class="seer-match-card" aria-hidden="true">?</div></div>
+          </div>
+          <p id="seer-game-status" class="seer-status" role="status"></p>
+          <div id="seer-hand" class="seer-hand" aria-label="Oynanabilir tarot kartları"></div>
+          <div id="seer-game-history"></div>
+        </div>
+        <aside class="rail">
+          <section class="panel deck-panel seer-side">
+            <h2>Düello Skoru</h2>
+            <div class="seer-score"><span>Sen<strong id="seer-own-score">0</strong></span><span>Rakip<strong id="seer-rival-score">0</strong></span></div>
+            <p id="seer-reward" class="score-note">Jetonlar 9 tur sonunda hesaplanır.</p>
+          </section>
+          <section class="panel deck-panel seer-side"><h2>Rakipte kalmış olabilecekler</h2><div id="seer-game-remaining" class="seer-pool"></div></section>
+        </aside>
+      </section>
+
+      <section id="kahin-kurallar" class="workspace" aria-label="Kâhin yarışması kuralları" hidden>
+        <div class="panel seer-panel seer-rules">
+          <div class="panel-head"><div><h2>Oyun Kuralları</h2></div></div>
+          <ol>
+            <li>İki oyuncu da 0’dan 8’e kadar birer kart alır. Çift sayılar siyah, tek sayılar beyazdır. Her kart bir kez kullanılır.</li>
+            <li>Her tur bir kart seçersin. Rakibin kartının sayısı gizli kalır. Kartının rengini ve seninkine göre düşük, eşit veya yüksek olduğunu öğrenirsin.</li>
+            <li>Büyük kartı oynayan 1 puan alır. Eşitlikte iki taraf da puan alamaz.</li>
+            <li>Dokuz kart da oynandığında düello biter. Puanın kadar Kâhin Jetonu alırsın. Kazandıysan skor farkı kadar ek jeton kazanırsın.</li>
+          </ol>
+          <h3>Metin2’de etkinliğe katılım</h3>
+          <p>Etkinliğe 30. seviyeden itibaren katılabilirsin. Bir düello 1 Tarot Seti ve 30.000 Yang gerektirir. Etkinlik göreviyle 18 Tarot Kartını bir sete çevirebilirsin. Bu işlem günde en fazla beş kez yapılabilir.</p>
+          <p><a href="https://tr-wiki.metin2.gameforge.com/index.php/Kahin_Yar%C4%B1%C5%9Fmas%C4%B1" target="_blank" rel="noopener">Metin2 Wiki’de Kâhin Yarışması</a></p>
+        </div>
+        <aside class="rail">
+          <section class="panel reward-panel"><h2>Jetonla alınan ödüller</h2>
+            <dl class="seer-rewards"><div><dt>Bronz Kâhin Sandığı</dt><dd>4 jeton</dd></div><div><dt>Gümüş Kâhin Sandığı</dt><dd>35 jeton</dd></div><div><dt>Altın Kâhin Sandığı</dt><dd>60 jeton</dd></div><div><dt>Sıralama bağışı</dt><dd>15 jeton</dd></div></dl>
           </section>
         </aside>
       </section>
