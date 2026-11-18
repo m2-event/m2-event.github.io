@@ -1,0 +1,245 @@
+name: Kâhin kart düzeni aktarımı
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/kahin-kart-aktarim.yml]
+permissions:
+  contents: write
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 2
+      - name: Kâhin değişikliklerini yeni branch'e yaz
+        shell: bash
+        run: |
+          git switch -c 2026.11.18-kahin_not_kartlari-HEC HEAD^
+          cat >/tmp/kahin-kartlar.patch <<'M2_KAHIN_PATCH'
+          diff --git a/index.html b/index.html
+          index e8e5750..9481a28 100644
+          --- a/index.html
+          +++ b/index.html
+          @@ -174,10 +174,28 @@
+                       <div class="head-actions"><button id="seer-undo" class="outline" type="button">Geri al</button><button id="seer-reset" class="outline" type="button">Sıfırla</button></div>
+                     </div>
+                     <form id="seer-note-form" class="seer-form">
+          -            <label>Senin kartın <select name="own" required><option value="">Seç</option></select></label>
+          -            <label>Rakibin rengi <select name="color" required><option value="">Seç</option><option value="black">Siyah</option><option value="white">Beyaz</option></select></label>
+          -            <label>Karşılaştırma <select name="relation" required><option value="">Seç</option><option value="lower">Rakip daha düşük</option><option value="equal">Eşit</option><option value="higher">Rakip daha yüksek</option></select></label>
+          -            <button id="seer-record" class="primary" type="submit">Turu kaydet</button>
+          +            <fieldset class="seer-note-cards">
+          +              <legend>Oynadığın kart</legend>
+          +              <div id="seer-note-hand" class="seer-hand"></div>
+          +            </fieldset>
+          +            <div class="seer-note-clues">
+          +              <fieldset>
+          +                <legend>Rakibin kart rengi</legend>
+          +                <div class="seer-choice-row">
+          +                  <button class="seer-choice seer-white" type="button" data-seer-color="white" aria-pressed="false">Beyaz</button>
+          +                  <button class="seer-choice seer-black" type="button" data-seer-color="black" aria-pressed="false">Siyah</button>
+          +                </div>
+          +              </fieldset>
+          +              <fieldset>
+          +                <legend>Rakibin kartı seninkinden</legend>
+          +                <div class="seer-choice-row">
+          +                  <button class="outline seer-choice" type="button" data-seer-relation="lower" aria-pressed="false">Daha düşük</button>
+          +                  <button class="outline seer-choice" type="button" data-seer-relation="equal" aria-pressed="false">Eşit</button>
+          +                  <button class="outline seer-choice" type="button" data-seer-relation="higher" aria-pressed="false">Daha yüksek</button>
+          +                </div>
+          +              </fieldset>
+          +              <button id="seer-record" class="primary" type="submit" disabled>Turu kaydet</button>
+          +            </div>
+                     </form>
+                     <p id="seer-note-status" class="seer-status" role="status"></p>
+                     <div id="seer-note-history"></div>
+          diff --git a/seer-ui.js b/seer-ui.js
+          index 7d452f7..ad10220 100644
+          --- a/seer-ui.js
+          +++ b/seer-ui.js
+          @@ -4,7 +4,9 @@
+             const { ranks, colors, relations, colorOf, createGame, play, score, analyze } = Seer;
+             const notesKey = 'hec-seer-notes-v1';
+             const form = get('seer-note-form');
+          -  const ownField = form.elements.namedItem('own');
+          +  const colorOrder = ['white', 'black'];
+          +  const noteHand = get('seer-note-hand');
+          +  let draft = emptyDraft();
+             let game = createGame();
+             let notes = loadNotes();
+           
+          @@ -39,18 +41,50 @@
+                 ).join('')}</tbody></table></div>`;
+             }
+           
+          +  function renderColorRows(cards, renderCard) {
+          +    return colorOrder.map((color) => {
+          +      const row = cards.filter((rank) => colorOf(rank) === color);
+          +      return row.length
+          +        ? `<div class="seer-card-row" role="group" aria-label="${colors[color]} kartlar">${row.map(renderCard).join('')}</div>`
+          +        : '';
+          +    }).join('');
+          +  }
+          +
+          +  function renderHand(target, used, isNotes = false) {
+          +    target.innerHTML = renderColorRows(ranks, (rank) => {
+          +      const color = colorOf(rank);
+          +      const played = used.has(rank);
+          +      return `<button type="button" class="seer-card seer-${color}" data-seer-card="${rank}"
+          +        aria-label="${rank}, ${colors[color]}${played ? ', oynandı' : ''}"
+          +        ${isNotes ? `aria-pressed="${draft.own === rank}"` : ''} ${played ? 'disabled' : ''}>${rank}</button>`;
+          +    });
+          +  }
+          +
+             function renderRemaining(target, remaining) {
+               target.innerHTML = remaining.length
+          -      ? remaining.map((rank) => `<span class="seer-chip seer-${colorOf(rank)}" aria-label="${rank}, ${colors[colorOf(rank)]}">${rank}</span>`).join('')
+          +      ? renderColorRows(remaining, (rank) => `<span class="seer-chip seer-${colorOf(rank)}" aria-label="${rank}, ${colors[colorOf(rank)]}">${rank}</span>`)
+                 : '<p class="muted">Rakibin eli boş.</p>';
+             }
+           
+          +  function emptyDraft() {
+          +    return { own: null, color: null, relation: null };
+          +  }
+          +
+          +  function renderDraft() {
+          +    for (const button of form.querySelectorAll('[data-seer-card],[data-seer-color],[data-seer-relation]')) {
+          +      const { seerCard, seerColor, seerRelation } = button.dataset;
+          +      const selected = seerCard !== undefined ? draft.own === Number(seerCard)
+          +        : seerColor !== undefined ? draft.color === seerColor : draft.relation === seerRelation;
+          +      button.setAttribute('aria-pressed', String(selected));
+          +      if (seerCard === undefined) button.disabled = notes.length === ranks.length;
+          +    }
+          +    get('seer-record').disabled = Object.values(draft).some((value) => value === null) || notes.length === ranks.length;
+          +  }
+          +
+             function renderNotes(message = '') {
+               const info = analyze(notes);
+          -    ownField.innerHTML = '<option value="">Seç</option>' +
+          -      ranks.filter((rank) => !notes.some((note) => note.own === rank))
+          -        .map((rank) => `<option value="${rank}">${rank} · ${colors[colorOf(rank)]}</option>`).join('');
+          -    get('seer-record').disabled = notes.length === ranks.length;
+          +    renderHand(noteHand, new Set(notes.map((note) => note.own)), true);
+          +    renderDraft();
+               get('seer-undo').disabled = !notes.length;
+               get('seer-reset').disabled = !notes.length;
+               get('seer-note-status').textContent = message;
+          @@ -58,12 +92,22 @@
+               renderRemaining(get('seer-note-remaining'), info.remaining);
+             }
+           
+          +  form.addEventListener('click', (event) => {
+          +    const button = event.target.closest('[data-seer-card],[data-seer-color],[data-seer-relation]');
+          +    if (!button || button.disabled) return;
+          +    const { seerCard, seerColor, seerRelation } = button.dataset;
+          +    if (seerCard !== undefined) draft.own = Number(seerCard);
+          +    else if (seerColor !== undefined) draft.color = seerColor;
+          +    else draft.relation = seerRelation;
+          +    get('seer-note-status').textContent = '';
+          +    renderDraft();
+          +    GameSound.play('card');
+          +  });
+          +
+             form.addEventListener('submit', (event) => {
+               event.preventDefault();
+          -    const fields = new FormData(form);
+          -    const own = fields.get('own');
+          -    if (own === '') return;
+          -    const round = { own: Number(own), color: fields.get('color'), relation: fields.get('relation') };
+          +    if (get('seer-record').disabled) return;
+          +    const round = { ...draft };
+               const next = [...notes, round];
+               if (!analyze(next)) {
+                 get('seer-note-status').textContent = 'Bu ipucu önceki turlarla uyuşmuyor. Kartı, rengi ve sonucu kontrol et.';
+          @@ -71,20 +115,22 @@
+                 return;
+               }
+               notes = next;
+          -    form.reset();
+          +    draft = emptyDraft();
+               saveNotes(`${notes.length}. tur kaydedildi.`);
+          +    noteHand.querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
+               GameSound.play('card');
+             });
+           
+             get('seer-undo').addEventListener('click', () => {
+               notes.pop();
+          +    draft = emptyDraft();
+               saveNotes('Son tur silindi.');
+               GameSound.play('discard');
+             });
+           
+             get('seer-reset').addEventListener('click', () => {
+               notes = [];
+          -    form.reset();
+          +    draft = emptyDraft();
+               saveNotes('Not defteri temizlendi.');
+               GameSound.play('deal');
+             });
+          @@ -112,10 +158,7 @@
+               get('seer-game-status').textContent = finished ? `${outcome} ${result.coins} jeton.` : last
+                 ? `${count}. tur · Rakip ${colors[last.color].toLocaleLowerCase('tr')} kart oynadı. ${relations[last.relation]}.`
+                 : 'İlk tur için bir kart seç.';
+          -    get('seer-hand').innerHTML = ranks.map((rank) => `
+          -      <button type="button" class="seer-card seer-${colorOf(rank)}" data-seer-card="${rank}"
+          -        aria-label="${rank}, ${colors[colorOf(rank)]}${used.has(rank) ? ', oynandı' : ''}" ${used.has(rank) ? 'disabled' : ''}>${rank}</button>`
+          -    ).join('');
+          +    renderHand(get('seer-hand'), used);
+               renderRounds(get('seer-game-history'), game.rounds, info, finished ? game.deck : null);
+               renderRemaining(get('seer-game-remaining'), info.remaining);
+             }
+          diff --git a/styles.css b/styles.css
+          index b383fb0..c6be890 100644
+          --- a/styles.css
+          +++ b/styles.css
+          @@ -375,9 +375,16 @@ footer { padding: 16px 1px 19px; color: #67685d; display: flex; justify-content:
+           .seer-hero::after { background: linear-gradient(90deg, #22192dee 0%, #22192ddf 43%, #22192d44 82%); }
+           .seer-panel { padding: 22px 23px; }
+           .seer-panel .panel-head { flex-wrap: wrap; }
+          -.seer-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+          -.seer-form label { display: grid; gap: 5px; flex: 1 1 110px; font-size: 12px; font-weight: 700; }
+          -.seer-form select { border: 1px solid #ddd5cf; border-radius: 7px; padding: 7px; background: #fcfaf6; color: #352c37; font: inherit; min-height: 35px; }
+          +.seer-form { display: grid; gap: 14px; }
+          +.seer-form fieldset { min-width: 0; padding: 0; margin: 0; border: 0; }
+          +.seer-form legend { padding: 0; margin-bottom: 6px; font-size: 12px; font-weight: 700; }
+          +.seer-note-cards .seer-hand { margin-top: 0; }
+          +.seer-note-clues { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: end; }
+          +.seer-choice-row { display: flex; flex-wrap: wrap; gap: 5px; }
+          +.seer-choice { min-height: 36px; padding: 5px 9px; font-size: 12px; font-weight: 700; border: 1px solid var(--line); border-radius: 6px; cursor: pointer; }
+          +.seer-choice:disabled { cursor: default; opacity: .6; }
+          +.seer-choice[aria-pressed="true"],.seer-card[aria-pressed="true"] { border-color: #96588f; box-shadow: inset 0 0 0 2px #96588f; }
+          +.seer-choice[aria-pressed="true"]:not(.seer-white,.seer-black) { background: #eee2ee; }
+           .seer-status { min-height: 1.3em; margin: 11px 0; color: #5b4268; font-size: 13px; font-weight: 600; }
+           .seer-status:empty { display: none; }
+           .seer-arena { display: flex; justify-content: center; align-items: center; gap: clamp(10px, 5vw, 38px); border: 1px solid #51415f; border-radius: 8px; background: radial-gradient(ellipse at top,#523d5d,#2a2033 78%); color: #f4e8d7; padding: 14px 9px; }
+          @@ -387,11 +394,13 @@ footer { padding: 16px 1px 19px; color: #67685d; display: flex; justify-content:
+           .seer-match-card { width: 47px; height: 60px; font: 700 28px var(--serif); }
+           .seer-black { color: #fff3d4; background: #302637; border-color: #74607e; }
+           .seer-white { color: #37293a; background: #f6ecda; border-color: #d8c9ae; }
+          -.seer-hand { display: grid; grid-template-columns: repeat(9,minmax(0,1fr)); gap: 4px; margin-top: 12px; }
+          +.seer-hand { display: grid; gap: 6px; margin-top: 12px; max-width: 460px; }
+          +.seer-card-row { display: flex; gap: 5px; }
+          +.seer-hand .seer-card { flex: 0 0 calc((100% - 20px) / 5); }
+           .seer-card { min-height: 44px; cursor: pointer; font-size: 15px; }
+           .seer-card:hover:not(:disabled) { border-color: #a16ba4; box-shadow: inset 0 0 0 1px #a16ba4; }
+           .seer-card:disabled { opacity: .42; cursor: default; text-decoration: line-through; }
+          -.seer-pool { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 10px; }
+          +.seer-pool { display: grid; gap: 5px; margin-top: 10px; }
+           .seer-chip { width: 23px; height: 27px; font-size: 12px; }
+           .seer-score { display: flex; gap: 13px; margin: 10px 0; }
+           .seer-score > span { flex: 1; padding: 5px 8px; background: #f5f0eb; border-radius: 6px; font-size: 12px; }
+          @@ -413,6 +422,5 @@ footer { padding: 16px 1px 19px; color: #67685d; display: flex; justify-content:
+           
+           @media (max-width: 620px) {
+             .seer-panel { padding: 14px; }
+          -  .seer-hand { grid-template-columns: repeat(5,minmax(0,1fr)); }
+             .nav a { white-space: normal; text-align: center; }
+           }
+          M2_KAHIN_PATCH
+          git apply --index /tmp/kahin-kartlar.patch
+          git diff --cached --check
+          node --check seer-ui.js
+          test "$(git write-tree)" = "e3634d4ac8c921d974780b3446d9cbee725ba62f"
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "Kâhin not defterine tıklanabilir kart sıraları ekle"
+          git push origin HEAD:refs/heads/2026.11.18-kahin_not_kartlari-HEC
