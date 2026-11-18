@@ -174,10 +174,28 @@
             <div class="head-actions"><button id="seer-undo" class="outline" type="button">Geri al</button><button id="seer-reset" class="outline" type="button">Sıfırla</button></div>
           </div>
           <form id="seer-note-form" class="seer-form">
-            <label>Senin kartın <select name="own" required><option value="">Seç</option></select></label>
-            <label>Rakibin rengi <select name="color" required><option value="">Seç</option><option value="black">Siyah</option><option value="white">Beyaz</option></select></label>
-            <label>Karşılaştırma <select name="relation" required><option value="">Seç</option><option value="lower">Rakip daha düşük</option><option value="equal">Eşit</option><option value="higher">Rakip daha yüksek</option></select></label>
-            <button id="seer-record" class="primary" type="submit">Turu kaydet</button>
+            <fieldset class="seer-note-cards">
+              <legend>Oynadığın kart</legend>
+              <div id="seer-note-hand" class="seer-hand"></div>
+            </fieldset>
+            <div class="seer-note-clues">
+              <fieldset>
+                <legend>Rakibin kart rengi</legend>
+                <div class="seer-choice-row">
+                  <button class="seer-choice seer-white" type="button" data-seer-color="white" aria-pressed="false">Beyaz</button>
+                  <button class="seer-choice seer-black" type="button" data-seer-color="black" aria-pressed="false">Siyah</button>
+                </div>
+              </fieldset>
+              <fieldset>
+                <legend>Rakibin kartı seninkinden</legend>
+                <div class="seer-choice-row">
+                  <button class="outline seer-choice" type="button" data-seer-relation="lower" aria-pressed="false">Daha düşük</button>
+                  <button class="outline seer-choice" type="button" data-seer-relation="equal" aria-pressed="false">Eşit</button>
+                  <button class="outline seer-choice" type="button" data-seer-relation="higher" aria-pressed="false">Daha yüksek</button>
+                </div>
+              </fieldset>
+              <button id="seer-record" class="primary" type="submit" disabled>Turu kaydet</button>
+            </div>
           </form>
           <p id="seer-note-status" class="seer-status" role="status"></p>
           <div id="seer-note-history"></div>

@@ -4,7 +4,9 @@
   const { ranks, colors, relations, colorOf, createGame, play, score, analyze } = Seer;
   const notesKey = 'hec-seer-notes-v1';
   const form = get('seer-note-form');
-  const ownField = form.elements.namedItem('own');
+  const colorOrder = ['white', 'black'];
+  const noteHand = get('seer-note-hand');
+  let draft = emptyDraft();
   let game = createGame();
   let notes = loadNotes();
 
@@ -39,18 +41,50 @@
       ).join('')}</tbody></table></div>`;
   }
 
+  function renderColorRows(cards, renderCard) {
+    return colorOrder.map((color) => {
+      const row = cards.filter((rank) => colorOf(rank) === color);
+      return row.length
+        ? `<div class="seer-card-row" role="group" aria-label="${colors[color]} kartlar">${row.map(renderCard).join('')}</div>`
+        : '';
+    }).join('');
+  }
+
+  function renderHand(target, used, isNotes = false) {
+    target.innerHTML = renderColorRows(ranks, (rank) => {
+      const color = colorOf(rank);
+      const played = used.has(rank);
+      return `<button type="button" class="seer-card seer-${color}" data-seer-card="${rank}"
+        aria-label="${rank}, ${colors[color]}${played ? ', oynandı' : ''}"
+        ${isNotes ? `aria-pressed="${draft.own === rank}"` : ''} ${played ? 'disabled' : ''}>${rank}</button>`;
+    });
+  }
+
   function renderRemaining(target, remaining) {
     target.innerHTML = remaining.length
-      ? remaining.map((rank) => `<span class="seer-chip seer-${colorOf(rank)}" aria-label="${rank}, ${colors[colorOf(rank)]}">${rank}</span>`).join('')
+      ? renderColorRows(remaining, (rank) => `<span class="seer-chip seer-${colorOf(rank)}" aria-label="${rank}, ${colors[colorOf(rank)]}">${rank}</span>`)
       : '<p class="muted">Rakibin eli boş.</p>';
+  }
+
+  function emptyDraft() {
+    return { own: null, color: null, relation: null };
+  }
+
+  function renderDraft() {
+    for (const button of form.querySelectorAll('[data-seer-card],[data-seer-color],[data-seer-relation]')) {
+      const { seerCard, seerColor, seerRelation } = button.dataset;
+      const selected = seerCard !== undefined ? draft.own === Number(seerCard)
+        : seerColor !== undefined ? draft.color === seerColor : draft.relation === seerRelation;
+      button.setAttribute('aria-pressed', String(selected));
+      if (seerCard === undefined) button.disabled = notes.length === ranks.length;
+    }
+    get('seer-record').disabled = Object.values(draft).some((value) => value === null) || notes.length === ranks.length;
   }
 
   function renderNotes(message = '') {
     const info = analyze(notes);
-    ownField.innerHTML = '<option value="">Seç</option>' +
-      ranks.filter((rank) => !notes.some((note) => note.own === rank))
-        .map((rank) => `<option value="${rank}">${rank} · ${colors[colorOf(rank)]}</option>`).join('');
-    get('seer-record').disabled = notes.length === ranks.length;
+    renderHand(noteHand, new Set(notes.map((note) => note.own)), true);
+    renderDraft();
     get('seer-undo').disabled = !notes.length;
     get('seer-reset').disabled = !notes.length;
     get('seer-note-status').textContent = message;
@@ -58,12 +92,22 @@
     renderRemaining(get('seer-note-remaining'), info.remaining);
   }
 
+  form.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-seer-card],[data-seer-color],[data-seer-relation]');
+    if (!button || button.disabled) return;
+    const { seerCard, seerColor, seerRelation } = button.dataset;
+    if (seerCard !== undefined) draft.own = Number(seerCard);
+    else if (seerColor !== undefined) draft.color = seerColor;
+    else draft.relation = seerRelation;
+    get('seer-note-status').textContent = '';
+    renderDraft();
+    GameSound.play('card');
+  });
+
   form.addEventListener('submit', (event) => {
     event.preventDefault();
-    const fields = new FormData(form);
-    const own = fields.get('own');
-    if (own === '') return;
-    const round = { own: Number(own), color: fields.get('color'), relation: fields.get('relation') };
+    if (get('seer-record').disabled) return;
+    const round = { ...draft };
     const next = [...notes, round];
     if (!analyze(next)) {
       get('seer-note-status').textContent = 'Bu ipucu önceki turlarla uyuşmuyor. Kartı, rengi ve sonucu kontrol et.';
@@ -71,20 +115,22 @@
       return;
     }
     notes = next;
-    form.reset();
+    draft = emptyDraft();
     saveNotes(`${notes.length}. tur kaydedildi.`);
+    noteHand.querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
     GameSound.play('card');
   });
 
   get('seer-undo').addEventListener('click', () => {
     notes.pop();
+    draft = emptyDraft();
     saveNotes('Son tur silindi.');
     GameSound.play('discard');
   });
 
   get('seer-reset').addEventListener('click', () => {
     notes = [];
-    form.reset();
+    draft = emptyDraft();
     saveNotes('Not defteri temizlendi.');
     GameSound.play('deal');
   });
@@ -112,10 +158,7 @@
     get('seer-game-status').textContent = finished ? `${outcome} ${result.coins} jeton.` : last
       ? `${count}. tur · Rakip ${colors[last.color].toLocaleLowerCase('tr')} kart oynadı. ${relations[last.relation]}.`
       : 'İlk tur için bir kart seç.';
-    get('seer-hand').innerHTML = ranks.map((rank) => `
-      <button type="button" class="seer-card seer-${colorOf(rank)}" data-seer-card="${rank}"
-        aria-label="${rank}, ${colors[colorOf(rank)]}${used.has(rank) ? ', oynandı' : ''}" ${used.has(rank) ? 'disabled' : ''}>${rank}</button>`
-    ).join('');
+    renderHand(get('seer-hand'), used);
     renderRounds(get('seer-game-history'), game.rounds, info, finished ? game.deck : null);
     renderRemaining(get('seer-game-remaining'), info.remaining);
   }
