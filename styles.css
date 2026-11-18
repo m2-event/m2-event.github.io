@@ -426,6 +426,6 @@ footer { padding: 16px 1px 19px; color: #67685d; display: flex; justify-content:
 }
 
 /* Center the four white cards above the gaps between the five black cards. */
-#seer-note-hand .seer-card-row:first-child .seer-card:first-child {
+.seer-hand > .seer-card-row:first-child > .seer-card:first-child {
   margin-inline-start: calc((100% + 5px) / 10);
 }
