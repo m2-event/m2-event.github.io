@@ -424,3 +424,8 @@ footer { padding: 16px 1px 19px; color: #67685d; display: flex; justify-content:
   .seer-panel { padding: 14px; }
   .nav a { white-space: normal; text-align: center; }
 }
+
+/* Center the four white cards above the gaps between the five black cards. */
+#seer-note-hand .seer-card-row:first-child .seer-card:first-child {
+  margin-inline-start: calc((100% + 5px) / 10);
+}
